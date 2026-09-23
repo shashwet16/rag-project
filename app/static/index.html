@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Research Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+ 
+:root{
+  --bg:#07070f;
+  --s1:#0e0e1c;
+  --s2:#141428;
+  --border:#1e1e3c;
+  --border-h:#2e2e56;
+  --acc:#7c3aed;
+  --acc-l:#9d68f0;
+  --acc-dim:rgba(124,58,237,0.08);
+  --acc-glow:rgba(124,58,237,0.25);
+  --text:#e8e8ff;
+  --t2:#8080a0;
+  --t3:#44446a;
+  --ok:#22c55e;
+  --err:#ef4444;
+}
+ 
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;overflow:hidden}
+ 
+canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+ 
+/* ── Sidebar ── */
+.sidebar{
+  width:264px;min-width:264px;
+  background:var(--s1);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  z-index:10;overflow:hidden;
+}
+ 
+.logo{
+  padding:18px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.logo-mark{
+  width:34px;height:34px;
+  background:linear-gradient(135deg,var(--acc),#a855f7);
+  border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;
+}
+.logo-name{font-size:13px;font-weight:600;letter-spacing:-0.01em}
+.logo-sub{font-size:11px;color:var(--t3);margin-top:1px}
+ 
+.sb-body{flex:1;overflow-y:auto;padding:16px}
+.sb-body::-webkit-scrollbar{width:3px}
+.sb-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+ 
+.lbl{
+  font-size:10px;font-weight:600;letter-spacing:0.08em;
+  color:var(--t3);text-transform:uppercase;
+  margin:18px 0 8px;
+}
+.lbl:first-child{margin-top:0}
+ 
+/* Upload zone */
+.drop{
+  border:1px dashed var(--border);
+  border-radius:10px;padding:18px 12px;
+  text-align:center;cursor:pointer;
+  transition:all 0.2s;background:var(--acc-dim);
+}
+.drop:hover,.drop.over{border-color:var(--acc);background:rgba(124,58,237,0.13)}
+.drop-icon{font-size:22px;margin-bottom:6px;display:block}
+.drop p{font-size:12px;color:var(--t2);line-height:1.5}
+.drop span{color:var(--acc-l);font-weight:500}
+#pdf-file{display:none}
+ 
+/* Input row */
+.row{display:flex;gap:6px;margin-bottom:6px}
+.row input{
+  flex:1;background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:8px;padding:8px 10px;
+  font-size:12px;color:var(--text);
+  font-family:'Inter',sans-serif;outline:none;
+  transition:border-color 0.2s;min-width:0;
+}
+.row input:focus{border-color:var(--acc)}
+.row input::placeholder{color:var(--t3)}
+.abtn{
+  background:var(--acc);border:none;border-radius:8px;
+  padding:8px 11px;color:#fff;font-size:12px;font-weight:500;
+  cursor:pointer;white-space:nowrap;transition:background 0.2s;
+  font-family:'Inter',sans-serif;
+}
+.abtn:hover{background:var(--acc-l)}
+.abtn:disabled{opacity:0.4;cursor:not-allowed}
+ 
+/* Source pills */
+.src-item{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 10px;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:8px;margin-bottom:5px;font-size:11px;
+}
+.badge{
+  padding:2px 5px;border-radius:4px;
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:0.04em;flex-shrink:0;
+}
+.bp{background:rgba(239,68,68,0.15);color:#f87171}
+.bw{background:rgba(59,130,246,0.15);color:#60a5fa}
+.by{background:rgba(239,68,68,0.15);color:#f87171}
+.src-name{flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ 
+/* ── Main ── */
+.main{flex:1;display:flex;flex-direction:column;z-index:10;overflow:hidden}
+ 
+.topbar{
+  padding:14px 24px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(7,7,15,0.85);backdrop-filter:blur(12px);
+}
+.topbar-title{font-size:13px;font-weight:500;color:var(--t2)}
+.status{font-size:11px;color:var(--t2);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);flex-shrink:0}
+.dot.off{background:var(--err);box-shadow:0 0 8px var(--err)}
+ 
+/* Messages */
+.msgs{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+.msgs::-webkit-scrollbar{width:3px}
+.msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+ 
+/* Empty */
+.empty{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:10px;text-align:center;padding:40px;
+  pointer-events:none;
+}
+.empty-glyph{font-size:44px;opacity:0.2;margin-bottom:4px}
+.empty-h{font-size:19px;font-weight:600;color:var(--t2);letter-spacing:-0.02em}
+.empty-p{font-size:13px;color:var(--t3);max-width:300px;line-height:1.65}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px;pointer-events:all}
+.chip{
+  padding:7px 13px;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:20px;font-size:12px;color:var(--t2);
+  cursor:pointer;transition:all 0.2s;
+}
+.chip:hover{border-color:var(--acc);color:var(--acc-l);background:var(--acc-dim)}
+ 
+/* Bubbles */
+.mu{display:flex;justify-content:flex-end}
+.mu-b{
+  background:var(--acc);color:#fff;
+  padding:11px 16px;
+  border-radius:16px 16px 4px 16px;
+  max-width:62%;font-size:14px;line-height:1.55;
+}
+.ma{display:flex;flex-direction:column;gap:10px;max-width:84%}
+.ma-b{
+  background:var(--s1);border:1px solid var(--border);
+  padding:15px 18px;
+  border-radius:4px 16px 16px 16px;
+  font-size:14px;line-height:1.7;color:var(--text);
+}
+.no-ans{color:var(--t2);font-style:italic}
+ 
+/* Source cards under answer */
+.src-row{display:flex;flex-wrap:wrap;gap:7px}
+.src-card{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 11px;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:7px;font-size:11px;color:var(--t2);
+}
+ 
+/* Typing */
+.typing{
+  display:flex;align-items:center;gap:5px;
+  padding:13px 16px;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:4px 16px 16px 16px;width:fit-content;
+}
+.td{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--acc-l);
+  animation:tdp 1.2s ease-in-out infinite;
+}
+.td:nth-child(2){animation-delay:0.2s}
+.td:nth-child(3){animation-delay:0.4s}
+@keyframes tdp{0%,60%,100%{opacity:0.25;transform:scale(0.75)}30%{opacity:1;transform:scale(1)}}
+ 
+/* Input area */
+.input-area{
+  padding:14px 24px 18px;
+  border-top:1px solid var(--border);
+  background:rgba(7,7,15,0.92);backdrop-filter:blur(12px);
+}
+.ibox{
+  display:flex;gap:10px;align-items:flex-end;
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px 10px 10px 16px;
+  transition:border-color 0.2s;
+}
+.ibox:focus-within{border-color:var(--acc)}
+textarea#qi{
+  flex:1;background:none;border:none;outline:none;
+  color:var(--text);font-family:'Inter',sans-serif;
+  font-size:14px;resize:none;
+  max-height:120px;min-height:24px;line-height:1.5;
+}
+textarea#qi::placeholder{color:var(--t3)}
+.sbtn{
+  width:36px;height:36px;
+  background:var(--acc);border:none;border-radius:10px;
+  color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all 0.2s;font-size:18px;
+}
+.sbtn:hover{background:var(--acc-l)}
+.sbtn:disabled{opacity:0.35;cursor:not-allowed}
+.hint{font-size:11px;color:var(--t3);text-align:center;margin-top:8px}
+ 
+/* Toasts */
+.toasts{position:fixed;bottom:90px;right:20px;z-index:1000;display:flex;flex-direction:column;gap:7px}
+.toast{
+  padding:10px 15px;border-radius:9px;font-size:12px;font-weight:500;
+  animation:tin 0.25s ease;max-width:280px;
+}
+.toast.ok{background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);color:#4ade80}
+.toast.er{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#f87171}
+.toast.inf{background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);color:#a78bfa}
+@keyframes tin{from{transform:translateX(16px);opacity:0}to{transform:translateX(0);opacity:1}}
+ 
+/* Spinner */
+.spin{
+  display:inline-block;width:12px;height:12px;
+  border:2px solid rgba(255,255,255,0.15);
+  border-top-color:#fff;border-radius:50%;
+  animation:sp 0.6s linear infinite;
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+ 
+<canvas id="c"></canvas>
+ 
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">🧠</div>
+    <div>
+      <div class="logo-name">RAG Research</div>
+      <div class="logo-sub">Knowledge Assistant</div>
+    </div>
+  </div>
+ 
+  <div class="sb-body">
+ 
+    <div class="lbl">Upload PDF</div>
+    <div class="drop" id="drop" onclick="document.getElementById('pdf-file').click()">
+      <span class="drop-icon">📄</span>
+      <p><span>Click to upload</span> or drag &amp; drop</p>
+      <p style="margin-top:3px;font-size:11px;color:var(--t3)">PDF files only</p>
+    </div>
+    <input type="file" id="pdf-file" accept=".pdf">
+ 
+    <div class="lbl">Web URL</div>
+    <div class="row">
+      <input type="text" id="url-in" placeholder="https://...">
+      <button class="abtn" id="url-btn" onclick="doURL()">Add</button>
+    </div>
+ 
+    <div class="lbl">YouTube</div>
+    <div class="row">
+      <input type="text" id="yt-in" placeholder="youtube.com/watch?v=...">
+      <button class="abtn" id="yt-btn" onclick="doYT()">Add</button>
+    </div>
+ 
+    <div class="lbl" style="margin-top:22px">Knowledge base</div>
+    <div id="kb">
+      <div style="font-size:12px;color:var(--t3);padding:12px 0;text-align:center">No sources yet</div>
+    </div>
+ 
+  </div>
+</div>
+ 
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Ask anything across your documents</span>
+    <div class="status">
+      <div class="dot off" id="sdot"></div>
+      <span id="stxt">Connecting…</span>
+    </div>
+  </div>
+ 
+  <div class="msgs" id="msgs">
+    <div class="empty" id="empty">
+      <div class="empty-glyph">◈</div>
+      <div class="empty-h">Your knowledge base is ready</div>
+      <div class="empty-p">Add PDFs, URLs or YouTube videos from the sidebar, then ask questions grounded in what you've uploaded.</div>
+      <div class="chips">
+        <div class="chip" onclick="chip(this)">What are the main topics?</div>
+        <div class="chip" onclick="chip(this)">Summarise the key points</div>
+        <div class="chip" onclick="chip(this)">What does this cover?</div>
+      </div>
+    </div>
+  </div>
+ 
+  <div class="input-area">
+    <div class="ibox">
+      <textarea id="qi" placeholder="Ask anything across your knowledge base…" rows="1"></textarea>
+      <button class="sbtn" id="sbtn" onclick="send()">›</button>
+    </div>
+    <div class="hint">Answers grounded in your uploaded documents · Enter to send</div>
+  </div>
+</div>
+ 
+<div class="toasts" id="toasts"></div>
+ 
+<script>
+// ── Stars ──────────────────────────────────────────────────────────
+const cv = document.getElementById('c');
+const cx = cv.getContext('2d');
+let stars=[];
+ 
+function mkStars(){
+  cv.width=innerWidth; cv.height=innerHeight;
+  stars=Array.from({length:130},()=>({
+    x:Math.random()*cv.width,
+    y:Math.random()*cv.height,
+    r:Math.random()*1.1+0.2,
+    o:Math.random()*0.45+0.05,
+    dx:(Math.random()-0.5)*0.12,
+  }));
+}
+ 
+function drawStars(){
+  cx.clearRect(0,0,cv.width,cv.height);
+  for(const s of stars){
+    cx.beginPath();
+    cx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    cx.fillStyle=`rgba(200,190,255,${s.o})`;
+    cx.fill();
+    s.x+=s.dx;
+    if(s.x<0)s.x=cv.width;
+    if(s.x>cv.width)s.x=0;
+  }
+  requestAnimationFrame(drawStars);
+}
+mkStars(); drawStars();
+addEventListener('resize',mkStars);
+ 
+// ── Toast ──────────────────────────────────────────────────────────
+function toast(msg,type='inf',ms=3200){
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;t.textContent=msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>t.remove(),ms);
+}
+ 
+// ── Health ─────────────────────────────────────────────────────────
+async function ping(){
+  try{
+    const r=await fetch('/health');
+    if(r.ok){
+      document.getElementById('sdot').className='dot';
+      document.getElementById('stxt').textContent='Connected';
+    }
+  }catch{
+    document.getElementById('sdot').className='dot off';
+    document.getElementById('stxt').textContent='Offline — start FastAPI';
+  }
+}
+ping(); setInterval(ping,10000);
+ 
+// ── Knowledge base list ────────────────────────────────────────────
+const kb=[];
+function addKB(label,type){
+  kb.push({label,type});
+  const map={pdf:'bp',web:'bw',youtube:'by'};
+  const typeLabel={pdf:'PDF',web:'Web',youtube:'YT'};
+  document.getElementById('kb').innerHTML=kb.map(s=>`
+    <div class="src-item">
+      <span class="badge ${map[s.type]||'bw'}">${typeLabel[s.type]||s.type}</span>
+      <span class="src-name" title="${s.label}">${s.label}</span>
+    </div>
+  `).join('');
+}
+ 
+// ── PDF upload ─────────────────────────────────────────────────────
+const pf=document.getElementById('pdf-file');
+const dz=document.getElementById('drop');
+ 
+pf.addEventListener('change',()=>{if(pf.files[0])uploadPDF(pf.files[0])});
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('over');
+  const f=e.dataTransfer.files[0];
+  if(f&&f.name.endsWith('.pdf'))uploadPDF(f);
+  else toast('Only PDF files are supported','er');
+});
+ 
+async function uploadPDF(file){
+  dz.innerHTML='<div class="spin"></div><p style="margin-top:10px;font-size:12px;color:var(--t2)">Ingesting…</p>';
+  const fd=new FormData(); fd.append('file',file);
+  try{
+    const r=await fetch('/ingest/pdf',{method:'POST',body:fd});
+    const d=await r.json();
+    if(r.ok){toast('✓ '+d.message,'ok');addKB(file.name,'pdf')}
+    else toast(d.detail||'Failed to ingest PDF','er');
+  }catch{toast('Server unreachable','er')}
+  dz.innerHTML='<span class="drop-icon">📄</span><p><span>Click to upload</span> or drag &amp; drop</p><p style="margin-top:3px;font-size:11px;color:var(--t3)">PDF files only</p>';
+  pf.value='';
+}
+ 
+// ── URL ────────────────────────────────────────────────────────────
+async function doURL(){
+  const u=document.getElementById('url-in').value.trim();
+  if(!u)return;
+  const btn=document.getElementById('url-btn');
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
+  try{
+    const r=await fetch('/ingest/url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});
+    const d=await r.json();
+    if(r.ok){toast('✓ '+d.message,'ok');addKB(u.replace(/https?:\/\//,'').substring(0,35),'web');document.getElementById('url-in').value=''}
+    else toast(d.detail||'Failed to load URL','er');
+  }catch{toast('Server unreachable','er')}
+  btn.disabled=false;btn.innerHTML='Add';
+}
+ 
+// ── YouTube ────────────────────────────────────────────────────────
+async function doYT(){
+  const u=document.getElementById('yt-in').value.trim();
+  if(!u)return;
+  const btn=document.getElementById('yt-btn');
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
+  try{
+    const r=await fetch('/ingest/youtube',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});
+    const d=await r.json();
+    if(r.ok){
+      toast('✓ '+d.message,'ok');
+      const vid=u.split('v=')[1]?.split('&')[0]||'video';
+      addKB('youtube.com/watch?v='+vid,'youtube');
+      document.getElementById('yt-in').value='';
+    }else toast(d.detail||'Failed to load YouTube','er');
+  }catch{toast('Server unreachable','er')}
+  btn.disabled=false;btn.innerHTML='Add';
+}
+ 
+// ── Chat ───────────────────────────────────────────────────────────
+const msgsEl=document.getElementById('msgs');
+const qi=document.getElementById('qi');
+ 
+qi.addEventListener('input',()=>{qi.style.height='auto';qi.style.height=Math.min(qi.scrollHeight,120)+'px'});
+qi.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+ 
+function chip(el){qi.value=el.textContent;qi.dispatchEvent(new Event('input'));send()}
+ 
+function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+ 
+function appendUser(text){
+  document.getElementById('empty')?.remove();
+  const d=document.createElement('div');
+  d.className='mu';
+  d.innerHTML=`<div class="mu-b">${esc(text)}</div>`;
+  msgsEl.appendChild(d);
+  msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+ 
+function appendAssistant(answer,sources=[]){
+  const w=document.createElement('div');
+  w.className='ma';
+ 
+  const isNone=answer.toLowerCase().includes("don't have enough")||answer.toLowerCase().includes("no relevant");
+  w.innerHTML=`<div class="ma-b">${isNone?`<span class="no-ans">${esc(answer)}</span>`:esc(answer).replace(/\n/g,'<br>')}</div>`;
+ 
+  if(sources.length){
+    const typeMap={pdf:'bp',web:'bw',youtube:'by'};
+    const typeLbl={pdf:'PDF',web:'Web',youtube:'YouTube'};
+    const row=document.createElement('div');
+    row.className='src-row';
+    sources.forEach(s=>{
+      const c=document.createElement('div');
+      c.className='src-card';
+      c.innerHTML=`<span class="badge ${typeMap[s.source_type]||'bw'}">${typeLbl[s.source_type]||s.source_type}</span><span>${esc(s.label)}</span>`;
+      row.appendChild(c);
+    });
+    w.appendChild(row);
+  }
+ 
+  msgsEl.appendChild(w);
+  msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+ 
+function showTyping(){
+  const d=document.createElement('div');
+  d.className='ma';d.id='ty';
+  d.innerHTML='<div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div>';
+  msgsEl.appendChild(d);
+  msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+function hideTyping(){document.getElementById('ty')?.remove()}
+ 
+async function send(){
+  const q=qi.value.trim();if(!q)return;
+  const btn=document.getElementById('sbtn');
+  btn.disabled=true;qi.value='';qi.style.height='auto';
+  appendUser(q);showTyping();
+  try{
+    const r=await fetch('/query',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({question:q,top_k:5})
+    });
+    const d=await r.json();
+    hideTyping();
+    if(r.ok)appendAssistant(d.answer,d.sources);
+    else appendAssistant(d.detail||'Something went wrong.');
+  }catch{
+    hideTyping();
+    appendAssistant('Could not reach the server. Make sure FastAPI is running.');
+  }
+  btn.disabled=false;qi.focus();
+}
+</script>
+</body>
+</html>
+ 
