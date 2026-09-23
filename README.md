@@ -1,5 +1,7 @@
 # RAG Project
 
+[](LICENSE)
+
 A multi-source Retrieval-Augmented Generation (RAG) pipeline: ingest PDFs, web pages, and YouTube transcripts, chunk and embed them into ChromaDB, then ask grounded questions through a FastAPI service or the CLI.
 
 Answers are generated **only** from retrieved context — the system is instructed to say it doesn't know rather than guess, and every answer comes back with its source citations.
@@ -181,3 +183,7 @@ python3 test_idontknow.py    # checks in-scope questions are answered and out-of
 - `app/ingestion/web_loader.py` validates the URL scheme against `('https', 'https')` — this currently rejects plain `http://` URLs.
 - `GROQ_API_KEY` is read into config but not yet wired into `app/generation/llm.py`, which always calls Gemini.
 - Retrieval's relevance threshold (`0.7`) is looser than the actual distance gap observed between in-scope and out-of-scope queries in testing (~0.24–0.33 vs. ~0.39–0.49) — tightening it to ~0.36–0.38 would let empty retrieval (rather than the LLM) catch out-of-scope questions.
+
+## License
+
+[MIT](LICENSE)
